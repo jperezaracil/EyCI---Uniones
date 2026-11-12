@@ -48,9 +48,24 @@ td,th{padding:8px 10px;border-bottom:1px solid var(--rule);text-align:left}
 .tw{overflow-x:auto}
 mjx-container{max-width:100%;overflow-x:auto;overflow-y:hidden}
 footer{font-size:.8rem;color:var(--muted);text-align:center}
+body.prof{font-size:23px}
+body.prof main,body.prof header .in{max-width:1180px}
+body.prof .q{font-size:1.25rem}
+body.prof .fig img{max-height:360px}
+body.prof .opt{cursor:default}
+.nav{display:flex;gap:6px;flex-wrap:wrap}
+.nav button{font:inherit;font-size:.75rem;font-weight:700;width:2.3em;height:2.3em;border:2px solid var(--rule);background:var(--card);color:var(--ink);cursor:pointer}
+.nav button.cur{background:var(--ink);color:var(--card);border-color:var(--ink)}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start}
+@media (max-width:800px){.two{grid-template-columns:1fr}}
+.qr{background:#fff;padding:14px;display:inline-block}
+.url{font-weight:700;word-break:break-all}
+.hint{font-size:.8rem;color:var(--muted)}
+a{color:var(--accent)}
 </style>
 <script>window.MathJax={tex:{inlineMath:[['$','$']]},svg:{fontCache:'global'},options:{enableMenu:false},startup:{typeset:false}};</script>
 <script src="https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-svg.js" async id="mj"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 </head>
 <body>
 <header><div class="in"><span class="t">Uniones · ¿qué has entendido?</span><span class="s">Estructuras y Construcciones Industriales · Tema 6 · Curso 2026/2027</span></div></header>
@@ -123,7 +138,62 @@ function end(){
   const r=h('div','row'); const b=h('button','btn sec','Repetir'); b.onclick=()=>{i=0;res=[];show();}; r.append(b); c.append(r);
   app.append(c); window.scrollTo(0,0);
 }
-start();
+// ---------- Modo profesor: se abre añadiendo #profesor a la dirección
+const PROF=location.hash.toLowerCase()==='#profesor';
+const BASE=location.origin+location.pathname;
+function profStart(){
+  i=-1; app.innerHTML='';
+  const c=h('section','card');
+  c.append(h('p','blk','Modo profesor'));
+  c.append(h('h1','q','Entrad con el móvil y contestad a vuestro ritmo'));
+  const two=h('div','two'); const left=h('div'); const right=h('div');
+  const web=location.protocol.startsWith('http');
+  if(web && window.QRCode){ const q=h('div','qr'); new QRCode(q,{text:BASE,width:300,height:300}); left.append(q); }
+  right.append(h('p','url',web?BASE:'La dirección y el código QR aparecen cuando la página está publicada en GitHub Pages.'));
+  right.append(h('p','',Q.length+' preguntas. Cada una se corrige al momento y explica por qué.'));
+  right.append(h('p','hint','Teclas: flecha derecha e izquierda para cambiar de pregunta; barra espaciadora para mostrar la respuesta.'));
+  two.append(left,right); c.append(two);
+  const r=h('div','row'); const b=h('button','btn','Empezar a proyectar'); b.onclick=()=>profShow(0); r.append(b); c.append(r);
+  app.append(c);
+}
+function profShow(k){
+  i=k; done=false; const q=Q[i]; app.innerHTML='';
+  const nav=h('div','nav'); Q.forEach((_,j)=>{const b=h('button',j===i?'cur':'',String(j+1)); b.setAttribute('aria-label','Pregunta '+(j+1)); b.onclick=()=>profShow(j); nav.append(b);}); app.append(nav);
+  app.append(h('div','meta','<span class="blk">'+q.b+'</span><span>Pregunta '+(i+1)+' de '+Q.length+'</span>'));
+  const c=h('section','card');
+  c.append(h('h1','q',q.q));
+  if(q.fq){const f=h('div','fig'); const im=new Image(); im.src=q.fq; im.alt='Esquema de la pregunta'; f.append(im); c.append(f);}
+  if(q.t!=='num'){ const o=h('div','opts'); q.o.forEach((t,j)=>{const b=h('div','opt','<span class="k">'+L[j]+'</span><span class="tx">'+t+'</span>'); o.append(b);}); c.append(o); }
+  else c.append(h('p','hint','Respuesta numérica, en '+q.u+'.'));
+  const fb=h('div'); fb.id='pfb'; c.append(fb);
+  const r=h('div','row');
+  const prev=h('button','btn sec','Anterior'); prev.disabled=i===0; prev.onclick=()=>profShow(i-1);
+  const rev=h('button','btn','Mostrar respuesta'); rev.id='rev'; rev.onclick=profReveal;
+  const next=h('button','btn sec','Siguiente'); next.disabled=i===Q.length-1; next.onclick=()=>profShow(i+1);
+  r.append(prev,rev,next); c.append(r);
+  app.append(c); ts(); window.scrollTo(0,0);
+}
+function profReveal(){
+  if(done||i<0) return; done=true; const q=Q[i]; const fb=document.getElementById('pfb');
+  if(q.t!=='num') [...app.querySelectorAll('.opt')].forEach((x,j)=>{ if(q.a.includes(j)) x.classList.add('good'); });
+  const ans=q.t==='num' ? (String(q.a).replace('.',',')+' '+q.u) : q.a.map(j=>L[j]).join(', ');
+  fb.className='fb ok';
+  fb.innerHTML='<span class="v">Respuesta: '+ans+'</span><span>'+q.e+'</span>';
+  if(q.fe){const f=h('div','fig'); const im=new Image(); im.src=q.fe; im.alt='Esquema de la explicación'; f.append(im); fb.append(f);}
+  document.getElementById('rev').disabled=true; ts();
+}
+if(PROF){
+  document.body.classList.add('prof');
+  document.querySelector('header .t').textContent='Uniones · quiz en directo';
+  document.addEventListener('keydown',e=>{
+    if(i<0){ if(e.key==='ArrowRight'||e.key===' '){e.preventDefault();profShow(0);} return; }
+    if(e.key==='ArrowRight'&&i<Q.length-1) profShow(i+1);
+    else if(e.key==='ArrowLeft'&&i>0) profShow(i-1);
+    else if(e.key===' '){ e.preventDefault(); profReveal(); }
+  });
+  profStart();
+} else start();
+window.addEventListener('hashchange',()=>location.reload());
 </script>
 <footer><p>Normativa: Código Estructural, Anejo 26 (uniones) y Anejo 22.</p></footer>
 </body>
